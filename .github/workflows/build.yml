@@ -1,0 +1,44 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Toolchain
+        run: swiftc --version
+
+      - name: Build universal app (arm64 + x86_64)
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          ./build.sh --zip
+
+      - name: Smoke test (render UI offscreen)
+        run: build/SelectTranslate.app/Contents/MacOS/SelectTranslate --render "$RUNNER_TEMP/preview" && ls "$RUNNER_TEMP/preview"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SelectTranslate
+          path: build/*.zip
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/*.zip \
+            --title "划线翻译 Select Translate $GITHUB_REF_NAME" \
+            --notes-file .github/release-notes.md
