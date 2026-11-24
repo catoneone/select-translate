@@ -1014,7 +1014,8 @@ final class NoticePanel: NSObject {
         panel = FloatingPanel(size: NSSize(width: 400, height: 74), radius: 16, keyable: false)
         super.init()
         let c = panel.container
-        icon.frame = NSRect(x: 16, y: (H - 30) / 2, width: 30, height: 30)
+        icon.frame = NSRect(x: 14, y: (H - 36) / 2, width: 36, height: 36)
+        icon.imageScaling = .scaleProportionallyUpOrDown
         icon.symbolConfiguration = .init(pointSize: 22, weight: .medium)
         titleLabel.font = .systemFont(ofSize: 13.5, weight: .semibold)
         titleLabel.frame = NSRect(x: 58, y: 15, width: 220, height: 18)
@@ -1034,8 +1035,13 @@ final class NoticePanel: NSObject {
     }
 
     func show(symbol: String, tint: NSColor, title: String, subtitle: String, action: String?, autoHide: TimeInterval?) {
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        icon.contentTintColor = tint
+        if symbol == "@app" {
+            icon.image = NSApp.applicationIconImage   // 使用应用图标
+            icon.contentTintColor = nil
+        } else {
+            icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            icon.contentTintColor = tint
+        }
         titleLabel.stringValue = title
         subLabel.stringValue = subtitle
         if let action {

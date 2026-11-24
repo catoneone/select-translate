@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/AppIcon-1024.png" width="128" alt="Icon">
+
 # Select Translate · 划线翻译
 
 **System-wide select-to-translate / polish / explain for macOS, with follow-up chat.<br>Powered by your local Codex or Claude Code, or any OpenAI / Anthropic compatible API.**

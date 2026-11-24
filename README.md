@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/AppIcon-1024.png" width="128" alt="图标">
+
 # 划线翻译 · Select Translate
 
 **macOS 全局划词翻译 / 润色 / 解释，支持追问。<br>直接使用本机的 Codex、Claude Code，或任意 OpenAI / Anthropic 兼容 API。**
@@ -134,7 +136,11 @@ Sources/
     ├── CodexProvider.swift     codex app-server（JSON-RPC）+ 预热会话池
     ├── ClaudeCodeProvider.swift claude CLI（stream-json）+ 备用进程
     └── APIProviders.swift      OpenAI 兼容 / Anthropic（SSE 流式）
+assets/                     图标：icon-source.png（Codex 生成的原图）→ AppIcon.icns
+tools/make-icon.swift       图标处理：规范到 Apple 图标网格、圆角裁切、投影、生成 .icns
 ```
+
+重新生成图标：`swift tools/make-icon.swift assets/icon-source.png assets/AppIcon.icns`
 
 命令行自测，无需界面：
 

@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func showReadyNotice() {
-        notice.show(symbol: "checkmark.circle.fill", tint: .systemGreen,
+        notice.show(symbol: "@app", tint: .systemGreen,
                     title: "划线翻译已启动",
                     subtitle: "在任意应用中选中文字即可翻译 / 润色。菜单栏图标可设置或退出。",
                     action: nil, autoHide: 4)
@@ -155,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let b = statusItem.button {
-            b.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "划线翻译")
+            b.image = NSImage(systemSymbolName: "character.cursor.ibeam", accessibilityDescription: "划线翻译")
             b.image?.isTemplate = true
             if b.image == nil { b.title = "译" }
         }
