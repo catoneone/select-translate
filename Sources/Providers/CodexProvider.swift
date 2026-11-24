@@ -86,7 +86,7 @@ final class CodexProvider: LLMProvider {
         starting = true
 
         guard let path = Self.findCodex() else {
-            finishStart(Err(msg: "找不到 codex 可执行文件。请安装 Codex CLI 或 ChatGPT/Codex 桌面版，或在设置中指定路径"))
+            finishStart(Err(msg: L("找不到 codex 可执行文件。请安装 Codex CLI 或 ChatGPT/Codex 桌面版，或在设置中指定路径", "codex executable not found. Install the Codex CLI or the ChatGPT/Codex desktop app, or set its path in Settings.")))
             return
         }
         let p = Process()
@@ -115,7 +115,7 @@ final class CodexProvider: LLMProvider {
         do {
             try p.run()
         } catch {
-            finishStart(Err(msg: "启动 codex 失败：\(error.localizedDescription)"))
+            finishStart(Err(msg: L("启动 codex 失败：", "Failed to start codex: ") + error.localizedDescription))
             return
         }
         proc = p
@@ -159,7 +159,7 @@ final class CodexProvider: LLMProvider {
         stdinHandle = nil
         ready = false
         buffer = Data()
-        let e = Err(msg: "codex 进程已退出，详见日志 ~/Library/Logs/\(Settings.appName)/")
+        let e = Err(msg: L("codex 进程已退出，详见日志", "codex exited, see logs in") + " ~/Library/Logs/\(Settings.appName)/")
         let ps = pending; pending = [:]
         ps.values.forEach { $0(.failure(e)) }
         let hs = handlers; handlers = [:]
@@ -312,7 +312,7 @@ final class CodexProvider: LLMProvider {
             guard let self, !task.cancelled else { return }
             if let err { onEvent(.failed(err.localizedDescription)); return }
             self.acquire { wt in
-                guard let wt else { onEvent(.failed("无法创建 Codex 会话，详见日志")); return }
+                guard let wt else { onEvent(.failed(L("无法创建 Codex 会话，详见日志", "Could not create a Codex thread, see logs"))); return }
                 if task.cancelled { self.release(wt.id); return }
                 self.startTurn(on: wt, prompt: prompt, task: task, onEvent: onEvent)
             }
@@ -344,7 +344,7 @@ final class CodexProvider: LLMProvider {
     }
 
     private func request(_ method: String, _ params: [String: Any], _ cb: @escaping (Result<[String: Any], Error>) -> Void) {
-        guard stdinHandle != nil else { cb(.failure(Err(msg: "codex 未运行"))); return }
+        guard stdinHandle != nil else { cb(.failure(Err(msg: L("codex 未运行", "codex is not running")))); return }
         nextId += 1
         pending[nextId] = cb
         write(["id": nextId, "method": method, "params": params])
@@ -379,7 +379,7 @@ final class CodexProvider: LLMProvider {
         if method == nil, let id = (m["id"] as? NSNumber)?.intValue {
             guard let cb = pending.removeValue(forKey: id) else { return }
             if let err = m["error"] as? [String: Any] {
-                cb(.failure(Err(msg: err["message"] as? String ?? "未知错误")))
+                cb(.failure(Err(msg: err["message"] as? String ?? L("未知错误", "Unknown error"))))
             } else {
                 cb(.success(m["result"] as? [String: Any] ?? [:]))
             }
@@ -394,9 +394,9 @@ final class CodexProvider: LLMProvider {
                 h(.delta(d))
             }
         case "error":
-            let msg = ((params["error"] as? [String: Any])?["message"] as? String) ?? "未知错误"
+            let msg = ((params["error"] as? [String: Any])?["message"] as? String) ?? L("未知错误", "Unknown error")
             if params["willRetry"] as? Bool == true {
-                handlers[tid]?(.status("网络波动，重试中…"))
+                handlers[tid]?(.status(L("网络波动，重试中…", "Network hiccup, retrying…")))
             } else {
                 finish(tid, .failed(msg))
             }
@@ -404,7 +404,7 @@ final class CodexProvider: LLMProvider {
             let turn = params["turn"] as? [String: Any] ?? [:]
             let status = turn["status"] as? String ?? "completed"
             if status == "failed" {
-                let msg = ((turn["error"] as? [String: Any])?["message"] as? String) ?? "处理失败"
+                let msg = ((turn["error"] as? [String: Any])?["message"] as? String) ?? L("处理失败", "Request failed")
                 finish(tid, .failed(msg))
             } else {
                 var text = accumulated[tid] ?? ""

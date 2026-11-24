@@ -13,8 +13,8 @@
 
 English · [中文](README.md)
 
-<img src="docs/images/toolbar-dark.png" width="300" alt="Toolbar"><br>
-<img src="docs/images/result-chat-dark.png" width="420" alt="Result and follow-up chat">
+<img src="docs/images/en/toolbar-dark.png" width="360" alt="Toolbar"><br>
+<img src="docs/images/en/result-chat-dark.png" width="420" alt="Result and follow-up chat">
 
 </div>
 
@@ -22,10 +22,10 @@ English · [中文](README.md)
 
 - **Works in any app**: drag-select, double-click a word, or Shift+click, and a small toolbar appears next to the cursor.
 - **Four modes**:
-  - **译中**: translate to Simplified Chinese.
-  - **译英**: translate to natural English.
-  - **润色**: polish the text in its original language.
-  - **解释**: explain a passage in plain words a high-school student can follow (great for reading papers).
+  - **中文**: translate to Simplified Chinese.
+  - **English**: translate to natural English.
+  - **Polish**: fix grammar and wording, keeping the original language.
+  - **Explain**: explain a passage in plain words a high-school student can follow (great for reading papers), organized as *In one sentence / Key concepts / Analogy*.
 - **Follow-up chat**: ask questions under any result. The original text, the result, and previous Q&A are sent as context.
 - **Streaming output**, one-click copy, and ⌘C copies only the selected part.
 - **Pluggable providers**:
@@ -39,7 +39,13 @@ English · [中文](README.md)
 
 - Frosted-glass cards with light / dark mode. Windows never steal focus; pin a window or press Esc to close it.
 
-> The UI is currently in Chinese. PRs for localization are welcome!
+- **English & Chinese UI**: menu bar icon → **Language** (System Default / 中文 / English). In English mode, explanations and follow-up answers are in English too.
+
+<p align="center">
+<img src="docs/images/en/result-explain-light.png" width="400" alt="Explain mode">
+&nbsp;
+<img src="docs/images/en/settings-codex-light.png" width="400" alt="Settings">
+</p>
 
 ## Install
 
@@ -49,7 +55,7 @@ English · [中文](README.md)
    xattr -dr com.apple.quarantine /Applications/SelectTranslate.app
    ```
 3. Grant **Accessibility** permission when prompted. It's needed to read the selected text.
-4. Click the menu bar icon → **设置… (Settings)** to choose a provider.
+4. Click the menu bar icon → **Settings…** to choose a provider. The UI follows your system language; change it under **Language**.
 
 ### Build from source
 

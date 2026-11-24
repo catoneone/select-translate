@@ -61,7 +61,7 @@ private func apiErrorMessage(_ body: String) -> String {
         if let m = obj["message"] as? String { return m }
     }
     let t = body.trimmingCharacters(in: .whitespacesAndNewlines)
-    return t.isEmpty ? "无响应内容" : String(t.prefix(300))
+    return t.isEmpty ? L("无响应内容", "Empty response") : String(t.prefix(300))
 }
 
 private func jsonObject(_ s: String) -> [String: Any]? {
@@ -98,12 +98,12 @@ final class OpenAICompatibleProvider: LLMProvider {
 
     @discardableResult
     func run(system: String, prompt: String, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
-        guard let url else { onEvent(.failed("Base URL 无效")); return BasicTask() }
+        guard let url else { onEvent(.failed(L("Base URL 无效", "Invalid Base URL"))); return BasicTask() }
         let model = Settings.model(.openai)
-        guard !model.isEmpty else { onEvent(.failed("请先在设置中填写模型名称")); return BasicTask() }
+        guard !model.isEmpty else { onEvent(.failed(L("请先在设置中填写模型名称", "Please set a model name in Settings"))); return BasicTask() }
         let key = Settings.apiKey(.openai)
         if key.isEmpty && url.host?.contains("openai.com") == true {
-            onEvent(.failed("请先在设置中填写 API Key")); return BasicTask()
+            onEvent(.failed(L("请先在设置中填写 API Key", "Please set an API key in Settings"))); return BasicTask()
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -119,7 +119,7 @@ final class OpenAICompatibleProvider: LLMProvider {
         return streamSSE(req, onEvent: onEvent) { _, data in
             if data == "[DONE]" { return SSEParse(done: true) }
             guard let obj = jsonObject(data) else { return SSEParse() }
-            if let e = obj["error"] as? [String: Any] { return SSEParse(error: e["message"] as? String ?? "未知错误") }
+            if let e = obj["error"] as? [String: Any] { return SSEParse(error: e["message"] as? String ?? L("未知错误", "Unknown error")) }
             let choice = (obj["choices"] as? [[String: Any]])?.first
             let delta = (choice?["delta"] as? [String: Any])?["content"] as? String
             return SSEParse(delta: delta)
@@ -138,11 +138,11 @@ final class AnthropicProvider: LLMProvider {
 
     @discardableResult
     func run(system: String, prompt: String, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
-        guard let url else { onEvent(.failed("Base URL 无效")); return BasicTask() }
+        guard let url else { onEvent(.failed(L("Base URL 无效", "Invalid Base URL"))); return BasicTask() }
         let model = Settings.model(.anthropic)
-        guard !model.isEmpty else { onEvent(.failed("请先在设置中填写模型名称")); return BasicTask() }
+        guard !model.isEmpty else { onEvent(.failed(L("请先在设置中填写模型名称", "Please set a model name in Settings"))); return BasicTask() }
         let key = Settings.apiKey(.anthropic)
-        guard !key.isEmpty else { onEvent(.failed("请先在设置中填写 API Key")); return BasicTask() }
+        guard !key.isEmpty else { onEvent(.failed(L("请先在设置中填写 API Key", "Please set an API key in Settings"))); return BasicTask() }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.timeoutInterval = 120
@@ -168,7 +168,7 @@ final class AnthropicProvider: LLMProvider {
                 return SSEParse(done: true)
             case "error":
                 let e = obj["error"] as? [String: Any]
-                return SSEParse(error: e?["message"] as? String ?? "未知错误")
+                return SSEParse(error: e?["message"] as? String ?? L("未知错误", "Unknown error"))
             default:
                 return SSEParse()
             }

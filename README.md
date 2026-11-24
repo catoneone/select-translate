@@ -38,6 +38,7 @@
   | **Anthropic API** | Claude Messages API，也支持兼容的代理地址。 |
 
 - **好看且不打扰**：毛玻璃卡片，深色 / 浅色自适应；窗口不抢焦点，📌 固定或 Esc 关闭。
+- **中文 / English 界面**：菜单栏图标 → **界面语言**（跟随系统 / 中文 / English）。英文界面下，「解释」和追问也用英文回答。
 
 <p align="center">
 <img src="docs/images/result-explain-light.png" width="400" alt="解释模式">
@@ -125,6 +126,7 @@ API Key 保存在 **macOS 钥匙串**中，不会写入配置文件。
 ```
 Sources/
 ├── main.swift              入口与命令行自测
+├── L10n.swift              界面语言（中文 / English）
 ├── App.swift               菜单栏、全局鼠标 / 键盘监听
 ├── Selection.swift         读取选中文字（辅助功能 API / 模拟 ⌘C）
 ├── Prompts.swift           各模式提示词、追问提示词
@@ -149,7 +151,7 @@ APP=build/SelectTranslate.app/Contents/MacOS/SelectTranslate
 $APP --selftest "Hello world"          # 用当前提供方跑全部模式并计时
 $APP --selftest "一段论文文字" 解释      # 只测某个模式
 $APP --chattest                        # 测试解释 + 连续追问
-$APP --render ./preview                # 离屏渲染界面截图
+$APP --render ./preview                # 离屏渲染界面截图（加参数 en 渲染英文界面）
 ```
 
 欢迎提交 Issue 和 PR。

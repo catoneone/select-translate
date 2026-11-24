@@ -5,36 +5,52 @@ import ApplicationServices
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
-    private let toolbar = Toolbar()
-    private let result = ResultPanel()
+    private var toolbar = Toolbar()
+    private var result = ResultPanel()
     private var monitors: [Any] = []
     private var downPoint = NSPoint.zero
     private var pendingText = ""
     private var trustTimer: Timer?
-    private let notice = NoticePanel()
-    private lazy var settingsWindow = SettingsWindowController()
+    private var notice = NoticePanel()
+    private var settingsWindow: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ n: Notification) {
         setupStatusItem()
-        toolbar.onPick = { [weak self] mode, p in
-            guard let self else { return }
-            self.result.show(text: self.pendingText, mode: mode, at: p)
-        }
+        wireUI()
         installMonitors()
-        notice.onAction = { [weak self] in self?.openAXSettings() }
         let trusted = AXIsProcessTrusted()
         appLog("launched, accessibility trusted=\(trusted), bundle=\(Bundle.main.bundlePath)")
         if trusted {
             showReadyNotice()
         } else {
             notice.show(symbol: "hand.raised.fill", tint: .systemOrange,
-                        title: "划线翻译需要「辅助功能」权限",
-                        subtitle: "用于读取你选中的文字。授权后此提示会自动消失。",
-                        action: "去授权", autoHide: nil)
+                        title: L("划线翻译需要「辅助功能」权限", "Select Translate needs Accessibility access"),
+                        subtitle: L("用于读取你选中的文字。授权后此提示会自动消失。", "Used to read the text you select. This notice disappears once granted."),
+                        action: L("去授权", "Grant"), autoHide: nil)
             checkAccessibility(prompt: true)
         }
         chooseInitialProvider()
         Providers.shared.current.warmUp()   // 启动本机 CLI / 预连接 API
+    }
+
+    private func wireUI() {
+        toolbar.onPick = { [weak self] mode, p in
+            guard let self else { return }
+            self.result.show(text: self.pendingText, mode: mode, at: p)
+        }
+        notice.onAction = { [weak self] in self?.openAXSettings() }
+    }
+
+    /// 切换界面语言：重建所有界面（按钮文字在创建时确定）
+    private func rebuildUI() {
+        toolbar.hide(); result.hide(); notice.hide()
+        settingsWindow?.close()
+        toolbar = Toolbar()
+        result = ResultPanel()
+        notice = NoticePanel()
+        settingsWindow = nil
+        wireUI()
+        Providers.shared.reload()   // 系统提示词随语言变化，重建会话
     }
 
     /// 首次启动：自动选择可用的本机提供方；都没有则打开设置
@@ -53,8 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func showReadyNotice() {
         notice.show(symbol: "@app", tint: .systemGreen,
-                    title: "划线翻译已启动",
-                    subtitle: "在任意应用中选中文字即可翻译 / 润色。菜单栏图标可设置或退出。",
+                    title: L("划线翻译已启动", "Select Translate is running"),
+                    subtitle: L("在任意应用中选中文字即可翻译 / 润色。菜单栏图标可设置或退出。", "Select text in any app to translate, polish or explain. Use the menu bar icon for settings."),
                     action: nil, autoHide: 4)
     }
 
@@ -155,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let b = statusItem.button {
-            b.image = NSImage(systemSymbolName: "character.cursor.ibeam", accessibilityDescription: "划线翻译")
+            b.image = NSImage(systemSymbolName: "character.cursor.ibeam", accessibilityDescription: L("划线翻译", "Select Translate"))
             b.image?.isTemplate = true
             if b.image == nil { b.title = "译" }
         }
@@ -166,18 +182,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        let title = NSMenuItem(title: "划线翻译 · \(Settings.provider.shortName) · \(Settings.currentDisplayName)", action: nil, keyEquivalent: "")
+        let title = NSMenuItem(title: L("划线翻译", "Select Translate") + " · \(Settings.provider.shortName) · \(Settings.currentDisplayName)", action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
         if !AXIsProcessTrusted() {
-            menu.addItem(item("⚠️ 需要辅助功能权限，点此打开设置…", #selector(openAXSettings)))
+            menu.addItem(item(L("⚠️ 需要辅助功能权限，点此打开设置…", "⚠️ Accessibility access required — open Settings…"), #selector(openAXSettings)))
         }
         menu.addItem(.separator())
-        let en = item("启用划词", #selector(toggleEnabled))
+        let en = item(L("启用划词", "Enable Selection Popup"), #selector(toggleEnabled))
         en.state = Settings.enabled ? .on : .off
         menu.addItem(en)
 
-        let provItem = NSMenuItem(title: "模型提供方", action: nil, keyEquivalent: "")
+        let provItem = NSMenuItem(title: L("模型提供方", "Model Provider"), action: nil, keyEquivalent: "")
         let provMenu = NSMenu()
         for k in ProviderKind.allCases {
             let it = item(k.title, #selector(setProvider(_:)))
@@ -187,13 +203,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         provItem.submenu = provMenu
         menu.addItem(provItem)
-        menu.addItem(item("设置…", #selector(openSettings), key: ","))
+        let langItem = NSMenuItem(title: L("界面语言", "Language"), action: nil, keyEquivalent: "")
+        let langMenu = NSMenu()
+        for lang in UILanguage.allCases {
+            let it = item(lang.menuTitle, #selector(setLanguage(_:)))
+            it.representedObject = lang.rawValue
+            it.state = L10n.setting == lang ? .on : .off
+            langMenu.addItem(it)
+        }
+        langItem.submenu = langMenu
+        menu.addItem(langItem)
+        menu.addItem(item(L("设置…", "Settings…"), #selector(openSettings), key: ","))
 
         menu.addItem(.separator())
-        menu.addItem(item("重新连接", #selector(reconnect)))
-        menu.addItem(item("打开日志文件夹", #selector(openLog)))
+        menu.addItem(item(L("重新连接", "Reconnect"), #selector(reconnect)))
+        menu.addItem(item(L("打开日志文件夹", "Open Logs Folder"), #selector(openLog)))
         menu.addItem(.separator())
-        menu.addItem(item("退出", #selector(quit), key: "q"))
+        menu.addItem(item(L("退出", "Quit"), #selector(quit), key: "q"))
     }
 
     private func item(_ t: String, _ sel: Selector, key: String = "") -> NSMenuItem {
@@ -208,7 +234,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Settings.provider = k
         Providers.shared.reload()
     }
-    @objc func openSettings() { settingsWindow.show() }
+    @objc func openSettings() {
+        if settingsWindow == nil { settingsWindow = SettingsWindowController() }
+        settingsWindow?.show()
+    }
+    @objc private func setLanguage(_ s: NSMenuItem) {
+        guard let v = s.representedObject as? String, let lang = UILanguage(rawValue: v), lang != L10n.setting else { return }
+        L10n.setting = lang
+        rebuildUI()
+        appLog("ui language: \(lang.rawValue) → english=\(L10n.isEnglish)")
+    }
     @objc private func reconnect() { Providers.shared.reload() }
     @objc private func openLog() { NSWorkspace.shared.open(Settings.logDir) }
     @objc private func quit() { NSApp.terminate(nil) }

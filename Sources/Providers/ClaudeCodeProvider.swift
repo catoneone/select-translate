@@ -85,7 +85,7 @@ final class ClaudeCodeProvider: LLMProvider {
         if var data = try? JSONSerialization.data(withJSONObject: msg) {
             data.append(0x0A)
             do { try s.stdin?.write(contentsOf: data) } catch {
-                finish(s, .failed("无法写入 Claude Code：\(error.localizedDescription)"))
+                finish(s, .failed(L("无法写入 Claude Code：", "Cannot write to Claude Code: ") + error.localizedDescription))
             }
         }
         // 为下一次请求准备备用进程
@@ -113,7 +113,7 @@ final class ClaudeCodeProvider: LLMProvider {
 
     private func spawn(system: String, model: String) throws -> Session {
         guard let path = Self.findClaude() else {
-            throw Err(msg: "找不到 claude 可执行文件。请先安装 Claude Code（npm i -g @anthropic-ai/claude-code）并登录，或在设置中指定路径")
+            throw Err(msg: L("找不到 claude 可执行文件。请先安装 Claude Code（npm i -g @anthropic-ai/claude-code）并登录，或在设置中指定路径", "claude executable not found. Install Claude Code (npm i -g @anthropic-ai/claude-code) and sign in, or set its path in Settings."))
         }
         let s = Session(system: system, model: model)
         let p = s.process
@@ -145,7 +145,7 @@ final class ClaudeCodeProvider: LLMProvider {
                 if self.spare === s { self.spare = nil }
                 if !s.finished {
                     let tail = s.stderrTail.trimmingCharacters(in: .whitespacesAndNewlines)
-                    self.finish(s, .failed("Claude Code 已退出（\(proc.terminationStatus)）" + (tail.isEmpty ? "" : "：\(tail.suffix(300))")))
+                    self.finish(s, .failed(L("Claude Code 已退出", "Claude Code exited") + " (\(proc.terminationStatus))" + (tail.isEmpty ? "" : ": \(tail.suffix(300))")))
                 }
                 self.active[ObjectIdentifier(s)] = nil
             }
@@ -203,7 +203,7 @@ final class ClaudeCodeProvider: LLMProvider {
             let isError = (m["is_error"] as? Bool) == true || (m["subtype"] as? String).map { $0 != "success" } == true
             let result = m["result"] as? String ?? ""
             if isError {
-                finish(s, .failed(result.isEmpty ? (m["subtype"] as? String ?? "未知错误") : result))
+                finish(s, .failed(result.isEmpty ? (m["subtype"] as? String ?? L("未知错误", "Unknown error")) : result))
             } else {
                 let full = !result.isEmpty ? result : (!s.lastAssistant.isEmpty ? s.lastAssistant : s.accumulated)
                 finish(s, .done(full))

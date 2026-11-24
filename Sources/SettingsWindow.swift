@@ -7,8 +7,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let grid = NSGridView()
     private let hintLabel = NSTextField(wrappingLabelWithString: "")
     private let testLabel = NSTextField(wrappingLabelWithString: "")
-    private let testButton = NSButton(title: "保存并测试", target: nil, action: nil)
-    private let saveButton = NSButton(title: "保存", target: nil, action: nil)
+    private let testButton = NSButton(title: L("保存并测试", "Save & Test"), target: nil, action: nil)
+    private let saveButton = NSButton(title: L("保存", "Save"), target: nil, action: nil)
 
     private let modelBox = NSComboBox()
     private let baseField = NSTextField()
@@ -40,7 +40,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private func build() {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: W, height: 400),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "划线翻译 · 设置"
+        window.title = L("划线翻译 · 设置", "Select Translate · Settings")
         window.isReleasedWhenClosed = false
         window.delegate = self
 
@@ -51,8 +51,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         for f in [baseField, keyField, pathField] { f.lineBreakMode = .byTruncatingMiddle; f.usesSingleLineMode = true }
         modelBox.completes = true
         modelBox.numberOfVisibleItems = 12
-        tierPopup.addItems(withTitles: ["默认", "Fast（priority）", "Ultrafast（部分模型支持）"])
-        effortPopup.addItems(withTitles: ["low（最快，推荐）", "medium", "high"])
+        tierPopup.addItems(withTitles: [L("默认", "Default"), "Fast (priority)", L("Ultrafast（部分模型支持）", "Ultrafast (some models)")])
+        effortPopup.addItems(withTitles: [L("low（最快，推荐）", "low (fastest, recommended)"), "medium", "high"])
 
         hintLabel.font = .systemFont(ofSize: 11.5)
         hintLabel.textColor = .secondaryLabelColor
@@ -117,7 +117,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             let r = grid.addRow(with: [label(title), v])
             r.yPlacement = .center
         }
-        addRow("提供方", providerPopup)
+        addRow(L("提供方", "Provider"), providerPopup)
 
         modelBox.removeAllItems()
         modelBox.addItems(withObjectValues: k.modelSuggestions)
@@ -125,35 +125,35 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         switch k {
         case .codex:
-            modelBox.placeholderString = "留空 = 使用 Codex 配置中的默认模型"
-            addRow("模型", modelBox)
+            modelBox.placeholderString = L("留空 = 使用 Codex 配置中的默认模型", "Empty = default model from your Codex config")
+            addRow(L("模型", "Model"), modelBox)
             tierPopup.selectItem(at: ["", "priority", "ultrafast"].firstIndex(of: Settings.codexServiceTier) ?? 0)
-            addRow("速度档", tierPopup)
+            addRow(L("速度档", "Speed tier"), tierPopup)
             effortPopup.selectItem(at: ["low", "medium", "high"].firstIndex(of: Settings.codexEffort) ?? 0)
-            addRow("推理强度", effortPopup)
+            addRow(L("推理强度", "Reasoning"), effortPopup)
             pathField.stringValue = Settings.binaryPath(.codex)
-            pathField.placeholderString = CodexProvider.findCodex().map { "自动：\($0)" } ?? "未找到 codex，请填写路径"
-            addRow("程序路径", pathField)
-            hintLabel.stringValue = "使用本机 Codex 登录的账号，无需 API Key。应用会常驻 codex app-server 并预热会话，翻译通常 1~2 秒出结果。小模型（如 *-luna / *-mini）更快。"
+            pathField.placeholderString = CodexProvider.findCodex().map { L("自动：", "Auto: ") + $0 } ?? L("未找到 codex，请填写路径", "codex not found — enter its path")
+            addRow(L("程序路径", "Executable"), pathField)
+            hintLabel.stringValue = L("使用本机 Codex 登录的账号，无需 API Key。应用会常驻 codex app-server 并预热会话，翻译通常 1~2 秒出结果。小模型（如 *-luna / *-mini）更快。", "Uses the account signed in to your local Codex — no API key needed. The app keeps codex app-server running with pre-warmed threads, so results usually arrive in 1–2 s. Smaller models (e.g. *-luna / *-mini) are faster.")
         case .claudeCode:
-            modelBox.placeholderString = "haiku / sonnet / opus 或完整模型名"
-            addRow("模型", modelBox)
+            modelBox.placeholderString = L("haiku / sonnet / opus 或完整模型名", "haiku / sonnet / opus or a full model name")
+            addRow(L("模型", "Model"), modelBox)
             pathField.stringValue = Settings.binaryPath(.claudeCode)
-            pathField.placeholderString = ClaudeCodeProvider.findClaude().map { "自动：\($0)" } ?? "未找到 claude，请填写路径"
-            addRow("程序路径", pathField)
-            hintLabel.stringValue = "使用本机 Claude Code 登录的账号（npm i -g @anthropic-ai/claude-code，并先在终端运行一次 claude 完成登录）。会预先启动一个备用进程以减少等待。"
+            pathField.placeholderString = ClaudeCodeProvider.findClaude().map { L("自动：", "Auto: ") + $0 } ?? L("未找到 claude，请填写路径", "claude not found — enter its path")
+            addRow(L("程序路径", "Executable"), pathField)
+            hintLabel.stringValue = L("使用本机 Claude Code 登录的账号（npm i -g @anthropic-ai/claude-code，并先在终端运行一次 claude 完成登录）。会预先启动一个备用进程以减少等待。", "Uses your signed-in local Claude Code (npm i -g @anthropic-ai/claude-code, then run claude once in Terminal to sign in). A spare process is kept ready to reduce latency.")
         case .openai, .anthropic:
             baseField.stringValue = Settings.d.string(forKey: "baseURL.\(k.rawValue)") ?? ""
             baseField.placeholderString = k.defaultBaseURL
             addRow("Base URL", baseField)
             keyField.stringValue = Settings.apiKey(k)
-            keyField.placeholderString = k == .openai ? "sk-…（本地 Ollama 等可留空）" : "sk-ant-…"
+            keyField.placeholderString = k == .openai ? L("sk-…（本地 Ollama 等可留空）", "sk-… (optional for local Ollama etc.)") : "sk-ant-…"
             addRow("API Key", keyField)
             modelBox.placeholderString = k.defaultModel
-            addRow("模型", modelBox)
+            addRow(L("模型", "Model"), modelBox)
             hintLabel.stringValue = k == .openai
-                ? "兼容 OpenAI Chat Completions 接口的服务均可：OpenAI、DeepSeek（https://api.deepseek.com）、Moonshot、通义千问、OpenRouter、本地 Ollama（http://localhost:11434/v1）等。API Key 保存在系统钥匙串中。"
-                : "Anthropic Messages API，也可填写兼容的代理地址。API Key 保存在系统钥匙串中。"
+                ? L("兼容 OpenAI Chat Completions 接口的服务均可：OpenAI、DeepSeek（https://api.deepseek.com）、Moonshot、通义千问、OpenRouter、本地 Ollama（http://localhost:11434/v1）等。API Key 保存在系统钥匙串中。", "Any OpenAI Chat Completions compatible service works: OpenAI, DeepSeek (https://api.deepseek.com), Moonshot, Qwen, OpenRouter, local Ollama (http://localhost:11434/v1), etc. The API key is stored in the macOS Keychain.")
+                : L("Anthropic Messages API，也可填写兼容的代理地址。API Key 保存在系统钥匙串中。", "Anthropic Messages API, or a compatible proxy. The API key is stored in the macOS Keychain.")
         }
         grid.column(at: 0).xPlacement = .trailing
         window.layoutIfNeeded()
@@ -205,7 +205,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     @objc private func saveAndTest() {
         save()
         testTask?.cancel()
-        setTest("测试中…（本机 CLI 首次启动可能需要几秒）")
+        setTest(L("测试中…（本机 CLI 首次启动可能需要几秒）", "Testing… (a local CLI may take a few seconds on first start)"))
         testButton.isEnabled = false
         let t0 = Date()
         var acc = ""
@@ -218,10 +218,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 self.setTest(s)
             case .done(let full):
                 let text = (full.isEmpty ? acc : full).trimmingCharacters(in: .whitespacesAndNewlines)
-                self.setTest(String(format: "✓ 连接成功（%.1f 秒）：", Date().timeIntervalSince(t0)) + text, color: .systemGreen)
+                self.setTest(String(format: L("✓ 连接成功（%.1f 秒）：", "✓ Connected (%.1fs): "), Date().timeIntervalSince(t0)) + text, color: .systemGreen)
                 self.testButton.isEnabled = true
             case .failed(let msg):
-                self.setTest("✗ 失败：" + msg, color: .systemRed)
+                self.setTest(L("✗ 失败：", "✗ Failed: ") + msg, color: .systemRed)
                 self.testButton.isEnabled = true
             }
         }
@@ -234,6 +234,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         reloadFields()
         return window
     }
+
+    func close() { window.close() }
 
     func windowWillClose(_ notification: Notification) {
         testTask?.cancel()

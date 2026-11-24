@@ -8,9 +8,9 @@ enum ProviderKind: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .codex: return "Codex（本机）"
-        case .claudeCode: return "Claude Code（本机）"
-        case .openai: return "OpenAI 兼容 API"
+        case .codex: return L("Codex（本机）", "Codex (local)")
+        case .claudeCode: return L("Claude Code（本机）", "Claude Code (local)")
+        case .openai: return L("OpenAI 兼容 API", "OpenAI-compatible API")
         case .anthropic: return "Anthropic API"
         }
     }

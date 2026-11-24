@@ -89,7 +89,7 @@ if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "--selftest" {
     print("clipboard after ⌘C (select all):", NSPasteboard.general.string(forType: .string) ?? "<nil>")
     exit(0)
 } else if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--render" {
-    renderPreviews(to: CommandLine.arguments[2])
+    renderPreviews(to: CommandLine.arguments[2], english: CommandLine.arguments.count > 3 && CommandLine.arguments[3] == "en")
 } else {
     let app = NSApplication.shared
     let delegate = AppDelegate()

@@ -129,10 +129,14 @@ final class Segmented: NSView {
     private let knob = FillView(color: Theme.knob, radius: 6)
     private var buttons: [NSButton] = []
     private(set) var selected = 0
-    private let segW: CGFloat = 52, h: CGFloat = 28, pad: CGFloat = 2
+    private let segW: CGFloat, h: CGFloat = 28, pad: CGFloat = 2
 
     init(titles: [String]) {
-        super.init(frame: NSRect(x: 0, y: 0, width: CGFloat(titles.count) * 52 + 4, height: 28))
+        // 段宽按最长标题自适应（英文标题更长）
+        let font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+        let maxW = titles.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 30
+        segW = max(52, ceil(maxW) + 22)
+        super.init(frame: NSRect(x: 0, y: 0, width: CGFloat(titles.count) * segW + 4, height: 28))
         track.frame = bounds
         track.autoresizingMask = [.width, .height]
         knob.wantsLayer = true
@@ -445,9 +449,9 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         c.addSubview(seg)
 
         closeBtn = HoverButton.make(symbol: "xmark", size: 12, weight: .semibold, target: self, action: #selector(closeTapped))
-        closeBtn.toolTip = "关闭（Esc）"
+        closeBtn.toolTip = L("关闭（Esc）", "Close (Esc)")
         pinBtn = HoverButton.make(symbol: "pin", size: 12, weight: .semibold, target: self, action: #selector(togglePin))
-        pinBtn.toolTip = "固定窗口：点击外部不关闭（追问时自动固定）"
+        pinBtn.toolTip = L("固定窗口：点击外部不关闭（追问时自动固定）", "Pin: keep open when clicking elsewhere (auto-pinned when you ask a follow-up)")
         c.addSubview(closeBtn)
         c.addSubview(pinBtn)
 
@@ -489,7 +493,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         input.drawsBackground = false
         input.focusRingType = .none
         input.font = .systemFont(ofSize: 13.5)
-        input.placeholderString = "继续追问…（⏎ 发送）"
+        input.placeholderString = L("继续追问…（⏎ 发送）", "Ask a follow-up… (⏎ to send)")
         input.cell?.usesSingleLineMode = true
         input.cell?.isScrollable = true
         input.cell?.wraps = false
@@ -500,7 +504,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         sendBtn.radius = 13
         sendBtn.baseTint = .controlAccentColor
         sendBtn.hoverTint = .controlAccentColor
-        sendBtn.toolTip = "发送（⏎）"
+        sendBtn.toolTip = L("发送（⏎）", "Send (⏎)")
         c.addSubview(inputBG)
         c.addSubview(input)
         c.addSubview(sendBtn)
@@ -512,8 +516,8 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         statusLabel.lineBreakMode = .byTruncatingTail
         c.addSubview(statusLabel)
 
-        copyBtn = HoverButton.make("复制", symbol: "doc.on.doc", size: 12, target: self, action: #selector(copyResult))
-        copyBtn.toolTip = "复制结果（有追问时复制最新回答）"
+        copyBtn = HoverButton.make(L("复制", "Copy"), symbol: "doc.on.doc", size: 12, target: self, action: #selector(copyResult))
+        copyBtn.toolTip = L("复制结果（有追问时复制最新回答）", "Copy result (the latest answer if you asked follow-ups)")
         c.addSubview(copyBtn)
     }
 
@@ -536,7 +540,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         seg.select(m.rawValue, animated: false)
         turns = chat.map { ChatTurn(question: $0.0, answer: $0.1, state: .done) }
         if let error {
-            phase = .failed; output = ""; mainText = "出错了：\(error)"; mainColor = .systemRed
+            phase = .failed; output = ""; mainText = L("出错了：", "Error: ") + error; mainColor = .systemRed
         } else if let out {
             phase = .done; output = out; mainText = out; mainColor = .labelColor
         } else {
@@ -581,7 +585,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         timeoutTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: false) { [weak self] _ in
             guard let self, self.task === t else { return }
             t.cancel()
-            onEvent(.failed("请求超时（120 秒），请检查网络后重试"))
+            onEvent(.failed(L("请求超时（120 秒），请检查网络后重试", "Request timed out (120 s). Check your network and try again.")))
         }
         return gen
     }
@@ -598,11 +602,11 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         case .done(let full):
             let t = full.trimmingCharacters(in: .whitespacesAndNewlines)
             output = t.isEmpty ? output.trimmingCharacters(in: .whitespacesAndNewlines) : t
-            mainText = output.isEmpty ? "（模型没有返回内容）" : output
+            mainText = output.isEmpty ? L("（模型没有返回内容）", "(The model returned nothing)") : output
             mainColor = output.isEmpty ? .secondaryLabelColor : .labelColor
             finishRequest(.done)
         case .failed(let msg):
-            mainText = "出错了：\(msg)"
+            mainText = L("出错了：", "Error: ") + msg
             mainColor = .systemRed
             finishRequest(.failed)
         }
@@ -620,11 +624,11 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         case .done(let full):
             let t = full.trimmingCharacters(in: .whitespacesAndNewlines)
             turns[i].answer = t.isEmpty ? turns[i].answer.trimmingCharacters(in: .whitespacesAndNewlines) : t
-            if turns[i].answer.isEmpty { turns[i].answer = "（模型没有返回内容）" }
+            if turns[i].answer.isEmpty { turns[i].answer = L("（模型没有返回内容）", "(The model returned nothing)") }
             turns[i].state = .done
             finishRequest(.done)
         case .failed(let msg):
-            turns[i].answer = "出错了：\(msg)"
+            turns[i].answer = L("出错了：", "Error: ") + msg
             turns[i].state = .failed
             finishRequest(.failed)
         }
@@ -679,12 +683,12 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
 
     private func updateStatus(elapsed: TimeInterval? = nil) {
         let t = elapsed ?? Date().timeIntervalSince(startedAt)
-        let secs = String(format: "%.1f 秒", t)
+        let secs = String(format: L("%.1f 秒", "%.1fs"), t)
         statusDot.layer?.removeAllAnimations()
         switch phase {
         case .loading:
             statusDot.color = .controlAccentColor
-            statusLabel.stringValue = "\(Settings.currentDisplayName) · " + (turns.isEmpty ? "生成中" : "思考中") + " \(secs)"
+            statusLabel.stringValue = "\(Settings.currentDisplayName) · " + (turns.isEmpty ? L("生成中", "Generating") : L("思考中", "Thinking")) + " \(secs)"
             if statusDot.layer?.animation(forKey: "pulse") == nil { pulse(statusDot) }
             dots.start()
         case .done:
@@ -693,7 +697,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
             dots.stop()
         case .failed:
             statusDot.color = .systemRed
-            statusLabel.stringValue = "\(Settings.currentDisplayName) · 失败"
+            statusLabel.stringValue = "\(Settings.currentDisplayName) · " + L("失败", "Failed")
             dots.stop()
         }
         let text = copyableText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -715,7 +719,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
     }
 
     // MARK: 正文渲染（主结果 + 追问对话）
-    private static let headingRegex = try? NSRegularExpression(pattern: "【([^】\\n]{1,12})】")
+    private static let headingRegex = try? NSRegularExpression(pattern: "【([^】\\n]{1,24})】")
 
     private var basePara: NSMutableParagraphStyle {
         let p = NSMutableParagraphStyle()
@@ -764,7 +768,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
             qp.paragraphSpacing = 4
             qp.paragraphSpacingBefore = 14
             let q = NSMutableAttributedString(string: "\n")
-            q.append(NSAttributedString(string: "问  ", attributes: [
+            q.append(NSAttributedString(string: L("问  ", "Q  "), attributes: [
                 .font: NSFont.systemFont(ofSize: 13, weight: .bold), .foregroundColor: NSColor.controlAccentColor, .paragraphStyle: qp]))
             q.append(NSAttributedString(string: t.question, attributes: [
                 .font: NSFont.systemFont(ofSize: 14, weight: .semibold), .foregroundColor: NSColor.labelColor, .paragraphStyle: qp]))
@@ -772,7 +776,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
             all.append(NSAttributedString(string: "\n", attributes: [.font: bodyFont]))
             switch (t.state, t.answer.isEmpty) {
             case (.loading, true):
-                all.append(NSAttributedString(string: "思考中…", attributes: [
+                all.append(NSAttributedString(string: L("思考中…", "Thinking…"), attributes: [
                     .font: bodyFont, .foregroundColor: NSColor.tertiaryLabelColor, .paragraphStyle: basePara]))
             case (.failed, _):
                 all.append(styled(t.answer, color: .systemRed))
@@ -877,7 +881,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
 
     @objc private func togglePin() {
         pinned.toggle()
-        pinBtn.image = NSImage(systemSymbolName: pinned ? "pin.fill" : "pin", accessibilityDescription: "固定")?
+        pinBtn.image = NSImage(systemSymbolName: pinned ? "pin.fill" : "pin", accessibilityDescription: L("固定", "Pin"))?
             .withSymbolConfiguration(.init(pointSize: 11.5, weight: .semibold))
         pinBtn.baseTint = pinned ? .controlAccentColor : .secondaryLabelColor
     }
@@ -915,11 +919,11 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
     }
 
     private func flashCopied() {
-        copyBtn.set(title: "已复制", symbol: "checkmark")
+        copyBtn.set(title: L("已复制", "Copied"), symbol: "checkmark")
         copyBtn.baseTint = .systemGreen
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in
             guard let self else { return }
-            self.copyBtn.set(title: "复制", symbol: "doc.on.doc")
+            self.copyBtn.set(title: L("复制", "Copy"), symbol: "doc.on.doc")
             self.copyBtn.baseTint = .secondaryLabelColor
         }
     }
@@ -927,11 +931,41 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
 
 // MARK: - 离屏渲染预览：SelectTranslate --render <输出目录>
 
-func renderPreviews(to dir: String) {
+func renderPreviews(to dir: String, english: Bool = false) {
     FloatingPanel.renderMode = true
+    L10n.override = english ? .en : .zh
     _ = NSApplication.shared
     try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
     let src = "Large language models are transforming how people read and write across languages, making cross-lingual communication easier than ever before."
+    let paper = "We propose a contrastive pre-training objective that aligns image and text embeddings in a shared latent space, enabling zero-shot transfer to downstream classification tasks."
+    let explainOut = english ? """
+    【In one sentence】
+    The model learns from lots of image–caption pairs to put matching pictures and words close together, so it can recognize new things without extra training.
+    【Key concepts】
+    • Contrastive pre-training: showing matching and non-matching pairs so the model learns which ones belong together.
+    • Embedding: turning an image or text into a list of numbers; similar meanings get similar numbers.
+    • Zero-shot transfer: doing a new task it was never specifically trained on.
+    【Analogy】
+    Like learning vocabulary with picture flashcards — after enough practice you can name a picture you've never seen before.
+    """ : """
+    【一句话】
+    作者让 AI 同时看大量"图片 + 文字说明"，学会把意思相同的图和字放到一起，这样不用专门训练也能认出新东西。
+    【关键概念】
+    • 对比预训练：给 AI 看配对的和不配对的图文，让它学会"谁和谁是一对"。
+    • 嵌入（embedding）：把图片或文字变成一串数字，意思越接近，数字越接近。
+    • 零样本迁移：没专门教过的任务，也能直接上手做。
+    【打个比方】
+    就像背单词时同时看图和单词卡，背多了，看到一张没见过的图也能猜出对应的词。
+    """
+    let chatMode: Mode = english ? .polish : .zh
+    let chatSrc = english ? "Our method achieve better result then previous works on all benchmark." : "Large language models are transforming how people read and write across languages."
+    let chatOut = english ? "Our method achieves better results than previous work on all benchmarks." : "大语言模型正在改变人们跨语言阅读和写作的方式。"
+    let chatQA: [(String, String)] = english
+        ? [("Why \"previous work\" instead of \"previous works\"?", "In academic writing, \"work\" meaning research is usually uncountable, so \"previous work\" sounds more natural."),
+           ("Make it sound more confident?", "Our method consistently outperforms prior work across all benchmarks.")]
+        : [("这里的 transforming 为什么不译成「转变」？", "「改变」更口语、搭配「方式」更自然；「转变」偏正式，强调从一种状态彻底变成另一种，用在这里略重。"),
+           ("换个更学术的说法？", "大语言模型正在深刻重塑人们跨语言阅读与写作的方式。")]
+
     for (apName, ap) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
         NSApp.appearance = NSAppearance(named: ap)
         let tb = Toolbar()
@@ -951,24 +985,11 @@ func renderPreviews(to dir: String) {
         }
 
         let ex = ResultPanel()
-        ex.preview(text: "We propose a contrastive pre-training objective that aligns image and text embeddings in a shared latent space, enabling zero-shot transfer to downstream classification tasks.", mode: .explain, output: """
-        【一句话】
-        作者让 AI 同时看大量"图片 + 文字说明"，学会把意思相同的图和字放到一起，这样不用专门训练也能认出新东西。
-        【关键概念】
-        • 对比预训练：给 AI 看配对的和不配对的图文，让它学会"谁和谁是一对"。
-        • 嵌入（embedding）：把图片或文字变成一串数字，意思越接近，数字越接近。
-        • 零样本迁移：没专门教过的任务，也能直接上手做。
-        【打个比方】
-        就像背单词时同时看图和单词卡，背多了，看到一张没见过的图也能猜出对应的词。
-        """, at: NSPoint(x: 400, y: 900))
+        ex.preview(text: paper, mode: .explain, output: explainOut, at: NSPoint(x: 400, y: 900))
         save(ex.panel, "\(dir)/result-explain-\(apName).png")
 
         let chat = ResultPanel()
-        chat.preview(text: "Large language models are transforming how people read and write across languages.",
-                     mode: .zh, output: "大语言模型正在改变人们跨语言阅读和写作的方式。",
-                     chat: [("这里的 transforming 为什么不译成「转变」？", "「改变」更口语、搭配「方式」更自然；「转变」偏正式，强调从一种状态彻底变成另一种，用在这里略重。"),
-                            ("换个更学术的说法？", "大语言模型正在深刻重塑人们跨语言阅读与写作的方式。")],
-                     at: NSPoint(x: 400, y: 900))
+        chat.preview(text: chatSrc, mode: chatMode, output: chatOut, chat: chatQA, at: NSPoint(x: 400, y: 900))
         save(chat.panel, "\(dir)/result-chat-\(apName).png")
         chat.panel.orderOut(nil)
         ex.panel.orderOut(nil)
