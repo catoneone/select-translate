@@ -182,3 +182,31 @@ func childEnvironment() -> [String: String] {
     env["PATH"] = ((env["PATH"] ?? "").split(separator: ":").map(String.init) + extra).joined(separator: ":")
     return env
 }
+
+// MARK: - 开机自动启动（SMAppService，macOS 13+）
+
+import ServiceManagement
+
+enum LoginItem {
+    static var status: SMAppService.Status { SMAppService.mainApp.status }
+    static var isEnabled: Bool { status == .enabled }
+
+    static func toggle() throws {
+        if isEnabled || status == .requiresApproval {
+            try SMAppService.mainApp.unregister()
+        } else {
+            try SMAppService.mainApp.register()
+        }
+        appLog("launch at login → \(statusName)")
+    }
+
+    static var statusName: String {
+        switch status {
+        case .enabled: return "enabled"
+        case .notRegistered: return "notRegistered"
+        case .requiresApproval: return "requiresApproval"
+        case .notFound: return "notFound"
+        @unknown default: return "unknown"
+        }
+    }
+}

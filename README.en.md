@@ -39,6 +39,7 @@ English · [中文](README.md)
 
 - Frosted-glass cards with light / dark mode. Windows never steal focus; pin a window or press Esc to close it.
 
+- **Launch at Login**: toggle it from the menu bar icon (managed under System Settings → General → Login Items).
 - **English & Chinese UI**: menu bar icon → **Language** (System Default / 中文 / English). In English mode, explanations and follow-up answers are in English too.
 
 <p align="center">

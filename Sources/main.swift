@@ -76,6 +76,13 @@ if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "--selftest" {
         }
     }
     RunLoop.main.run()
+} else if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "--login-item" {
+    // 自测开机启动：--login-item [toggle]
+    if CommandLine.arguments.count > 2 && CommandLine.arguments[2] == "toggle" {
+        do { try LoginItem.toggle() } catch { print("error:", error) }
+    }
+    print("launch at login:", LoginItem.statusName)
+    exit(0)
 } else if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "--copytest" {
     _ = NSApplication.shared
     let rp = ResultPanel()

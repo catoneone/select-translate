@@ -1,5 +1,6 @@
 import Cocoa
 import ApplicationServices
+import ServiceManagement
 
 // MARK: - App
 
@@ -192,6 +193,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let en = item(L("启用划词", "Enable Selection Popup"), #selector(toggleEnabled))
         en.state = Settings.enabled ? .on : .off
         menu.addItem(en)
+        let login = item(L("开机自动启动", "Launch at Login"), #selector(toggleLaunchAtLogin))
+        switch LoginItem.status {
+        case .enabled: login.state = .on
+        case .requiresApproval: login.state = .mixed; login.toolTip = L("需要在系统设置中允许", "Needs approval in System Settings")
+        default: login.state = .off
+        }
+        menu.addItem(login)
 
         let provItem = NSMenuItem(title: L("模型提供方", "Model Provider"), action: nil, keyEquivalent: "")
         let provMenu = NSMenu()
@@ -238,6 +246,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if settingsWindow == nil { settingsWindow = SettingsWindowController() }
         settingsWindow?.show()
     }
+    @objc private func toggleLaunchAtLogin() {
+        do {
+            try LoginItem.toggle()
+        } catch {
+            appLog("launch at login error: \(error)")
+            let a = NSAlert()
+            a.messageText = L("无法设置开机自动启动", "Couldn't change Launch at Login")
+            a.informativeText = error.localizedDescription
+            NSApp.activate(ignoringOtherApps: true)
+            a.runModal()
+        }
+        if LoginItem.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
+    }
+
     @objc private func setLanguage(_ s: NSMenuItem) {
         guard let v = s.representedObject as? String, let lang = UILanguage(rawValue: v), lang != L10n.setting else { return }
         L10n.setting = lang

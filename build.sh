@@ -87,6 +87,7 @@ echo "✅ 构建完成：${APP}（版本 ${VERSION}，架构 ${ARCHS}）"
 case "${1:-}" in
   --install)
     pkill -x "$NAME" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -x "$NAME" >/dev/null || break; sleep 0.3; done   # 等旧进程退出
     rm -rf "/Applications/$NAME.app"
     cp -R "$APP" /Applications/
     open "/Applications/$NAME.app"
