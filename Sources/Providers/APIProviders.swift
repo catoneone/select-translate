@@ -97,7 +97,8 @@ final class OpenAICompatibleProvider: LLMProvider {
     func warmUp() { preconnect(url) }
 
     @discardableResult
-    func run(system: String, prompt: String, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+    func run(system: String, prompt: String, session: UUID?, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+        // 无状态 HTTP 请求：每次只发送本次的系统提示词和消息
         guard let url else { onEvent(.failed(L("Base URL 无效", "Invalid Base URL"))); return BasicTask() }
         let model = Settings.model(.openai)
         guard !model.isEmpty else { onEvent(.failed(L("请先在设置中填写模型名称", "Please set a model name in Settings"))); return BasicTask() }
@@ -137,7 +138,8 @@ final class AnthropicProvider: LLMProvider {
     func warmUp() { preconnect(url) }
 
     @discardableResult
-    func run(system: String, prompt: String, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+    func run(system: String, prompt: String, session: UUID?, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+        // 无状态 HTTP 请求：每次只发送本次的系统提示词和消息
         guard let url else { onEvent(.failed(L("Base URL 无效", "Invalid Base URL"))); return BasicTask() }
         let model = Settings.model(.anthropic)
         guard !model.isEmpty else { onEvent(.failed(L("请先在设置中填写模型名称", "Please set a model name in Settings"))); return BasicTask() }

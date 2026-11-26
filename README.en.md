@@ -74,7 +74,7 @@ Sign with a fixed (even self-signed) certificate via `SIGN_ID` to keep the permi
 ## Providers
 
 - **Codex**: install the [Codex CLI](https://github.com/openai/codex) or the ChatGPT / Codex desktop app and sign in. Leave the model empty to use your `~/.codex/config.toml` default, or pick a small model (e.g. `*-mini`) for speed. The Fast / Ultrafast service tiers are optional.
-  - **Why it's fast**: the first turn of a fresh Codex thread costs 3–8 s for connection setup, warm-up, and context building, while later turns on the same thread take about 1 s and hit the prompt cache. So the app keeps two warm threads and rotates them every 40 requests. Tools, plugins, and MCP are disabled, and the sandbox is read-only.
+  - **Why it's fast**: the first turn of a fresh Codex thread costs 3–8 s for connection setup, warm-up, and context building, while later turns on the same thread take about 1 s and hit the prompt cache. So the app keeps two "clean" threads warmed up with a content-free ping. **Each new selection gets its own clean thread**; mode switches and follow-ups for that selection stay on it, and it is discarded as soon as the popup closes or you select new text, so text from different selections never mixes. Tools, plugins, and MCP are disabled, and the sandbox is read-only.
 - **Claude Code**: `npm i -g @anthropic-ai/claude-code`, then run `claude` once to sign in. The default model is `haiku`. It runs with `--tools ""` and `--strict-mcp-config`.
 - **OpenAI-compatible**: set the Base URL (e.g. `https://api.deepseek.com`, `http://localhost:11434/v1` for Ollama), the API key, and the model.
 - **Anthropic**: Base URL `https://api.anthropic.com`, model e.g. `claude-haiku-4-5`.
@@ -83,7 +83,7 @@ API keys are stored in the macOS Keychain.
 
 ## Privacy
 
-Selected text is sent only to the provider you choose. The app itself collects nothing.
+Selected text is sent only to the provider you choose. Each popup is bound to the provider active when it opened; after switching providers the old popup closes and never sends its text or chat history to the new provider. The app itself collects nothing.
 Logs (`~/Library/Logs/SelectTranslate/`) contain status information only, never your text.
 
 ## Development

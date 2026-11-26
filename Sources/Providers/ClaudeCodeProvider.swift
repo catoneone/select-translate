@@ -57,7 +57,8 @@ final class ClaudeCodeProvider: LLMProvider {
     }
 
     @discardableResult
-    func run(system: String, prompt: String, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+    func run(system: String, prompt: String, session: UUID?, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+        // 每个请求都是独立进程（--no-session-persistence），天然不跨会话共享上下文
         let task = BasicTask()
         let model = Settings.model(.claudeCode)
         var s: Session

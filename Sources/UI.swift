@@ -424,6 +424,8 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
     private var mainColor: NSColor = .labelColor
     private var turns: [ChatTurn] = []
     private var generation = 0              // 切换模式时作废旧请求的回调
+    private var sessionID = UUID()          // 当前这段划选文字的会话（Codex 据此隔离上下文）
+    private var providerGeneration = 0      // 打开弹窗时的提供方版本；切换提供方后不再发送
     private var task: LLMTask?
     private var startedAt = Date()
     private var timeoutTimer: Timer?
@@ -524,6 +526,10 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
     // MARK: 展示 & 运行
     func show(text: String, mode m: Mode, at topLeft: NSPoint) {
         let wasVisible = panel.isVisible
+        // 新的一段文字 = 新会话：结束旧会话（Codex 会丢弃旧线程），并绑定当前提供方
+        Providers.shared.endSession(sessionID)
+        sessionID = UUID()
+        providerGeneration = Providers.shared.generation
         source = text
         anchor = topLeft
         input.stringValue = ""
@@ -576,7 +582,13 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         updateStatus()
         relayout(animateIn: animateIn)
 
-        let t = Providers.shared.run(prompt: prompt) { [weak self] ev in
+        // 提供方已切换：不把这段内容（以及之前的问答）发给新的提供方
+        guard Providers.shared.generation == providerGeneration else {
+            onEvent(.failed(L("模型服务已切换。为避免把这段内容发给新的服务，请重新划选文字。",
+                              "The model provider has changed. To avoid sending this text to the new provider, please select it again.")))
+            return gen
+        }
+        let t = Providers.shared.run(prompt: prompt, session: sessionID) { [weak self] ev in
             guard let self, self.generation == gen else { return }
             onEvent(ev)
         }
@@ -865,6 +877,7 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         task?.cancel()
         task = nil
         generation += 1
+        Providers.shared.endSession(sessionID)
         stopTimers()
         dots.stop()
         panel.orderOut(nil)
@@ -907,6 +920,14 @@ final class ResultPanel: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         appLog("copy via \(source): \(s.count) chars, ok=\(ok), verify=\(pb.string(forType: .string) == s)")
         return ok
     }
+
+    /// 自测用：模拟发送追问，返回最后一条回答与状态
+    func debugAsk(_ q: String) -> String {
+        input.stringValue = q
+        send()
+        return "\(phase) | " + (turns.last?.answer ?? "")
+    }
+    var debugPhase: String { "\(phase)" }
 
     /// 自测用：模拟点击复制按钮
     func debugClickCopy() { copyBtn.performClick(nil) }

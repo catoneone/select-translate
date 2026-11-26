@@ -171,14 +171,18 @@ final class CodexProvider: LLMProvider {
         if starting { finishStart(e) }
     }
 
-    // MARK: 预热线程池
+    // MARK: 预热线程池（每段划选文字独占一个线程）
     // 新线程的第一轮要建立 WebSocket、预热、构建上下文（3~8 秒）；之后同一线程的每轮只需 ~1 秒。
-    // 所以常驻 2 个已预热的线程轮流复用，每个线程用满 maxTurns 轮后后台换新。
+    // 所以后台常备 poolSize 个「干净」的预热线程（只跑过一轮无内容的预热）。
+    // 每段新划选的文字（一个会话）领取一个干净线程独占使用：同一段文字的切换模式、追问都在这个线程上；
+    // 会话结束（弹窗关闭 / 划选新文字）后线程即被丢弃，绝不会把一段文字的内容带进另一段文字的请求里。
 
     private final class WarmThread {
         let id: String
         var busy = true
-        var ready = false
+        var ready = false            // 预热轮完成后才可用
+        var session: UUID?           // 绑定的会话；nil = 干净线程
+        var retire = false           // 空闲后丢弃
         var turns = 0
         init(id: String) { self.id = id }
     }
@@ -186,7 +190,9 @@ final class CodexProvider: LLMProvider {
     private var creating = 0
     private var threadWaiters: [(WarmThread?) -> Void] = []
     private let poolSize = 2
-    private let maxTurns = 40
+    private let maxTurnsPerSession = 30   // 同一段文字追问很多次时，换新线程避免上下文过长
+
+    private var freshCount: Int { pool.filter { $0.session == nil && !$0.retire }.count }
 
     /// 启动 codex 并预热线程池
     func warmUp() {
@@ -195,18 +201,19 @@ final class CodexProvider: LLMProvider {
         }
     }
 
-    /// 等到有一个预热完成的空闲线程（自测用）
+    /// 等到有一个预热完成的干净线程（自测用）
     func whenReady(_ cb: @escaping () -> Void) {
         ensureReady { [weak self] _ in
-            self?.acquire { wt in
+            self?.acquireFresh { wt in
                 wt?.busy = false
+                wt?.session = nil
                 cb()
             }
         }
     }
 
     private func fillPool() {
-        while pool.count + creating < poolSize { createThread() }
+        while freshCount + creating < poolSize { createThread() }
     }
 
     private func createThread() {
@@ -230,8 +237,8 @@ final class CodexProvider: LLMProvider {
             }
             let wt = WarmThread(id: tid)
             self.pool.append(wt)
-            // 预热轮：建立连接 + 缓存系统提示词
-            self.startTurn(on: wt, prompt: "（连接预热，无需处理）请只回复：OK", task: nil) { _ in }
+            // 预热轮：建立连接 + 缓存系统提示词（不含任何用户内容）
+            self.startTurn(on: wt, prompt: "ping（系统连接测试，与后续任务无关）。只回复：pong", task: nil) { _ in }
         }
     }
 
@@ -241,33 +248,65 @@ final class CodexProvider: LLMProvider {
         ws.forEach { $0(nil) }
     }
 
-    private func acquire(_ cb: @escaping (WarmThread?) -> Void) {
-        if let wt = pool.first(where: { $0.ready && !$0.busy }) {
+    /// 领取一个干净的预热线程
+    private func acquireFresh(_ cb: @escaping (WarmThread?) -> Void) {
+        if let wt = pool.first(where: { $0.ready && !$0.busy && $0.session == nil && !$0.retire }) {
+            wt.busy = true
+            cb(wt)
+            fillPool()   // 立刻补一个
+            return
+        }
+        threadWaiters.append(cb)
+        while freshCount + creating < threadWaiters.count + poolSize { createThread() }
+    }
+
+    /// 为会话取线程：优先用该会话已绑定的空闲线程，否则领一个干净线程并绑定
+    private func acquire(session: UUID, _ cb: @escaping (WarmThread?) -> Void) {
+        if let wt = pool.first(where: { $0.session == session && !$0.retire && !$0.busy && $0.ready }),
+           wt.turns < maxTurnsPerSession {
             wt.busy = true
             cb(wt)
             return
         }
-        threadWaiters.append(cb)
-        // 都在忙（或还在预热）时，额外开一个线程兜底
-        if pool.filter({ !$0.busy }).isEmpty && creating == 0 && pool.count < poolSize + 1 { createThread() }
-        else { fillPool() }
+        // 绑定的线程正忙（例如刚中断上一个请求）或已用满：旧线程空闲后丢弃，换一个干净线程
+        for wt in pool where wt.session == session { retire(wt) }
+        acquireFresh { wt in
+            wt?.session = session
+            cb(wt)
+        }
+    }
+
+    private func retire(_ wt: WarmThread) {
+        wt.retire = true
+        if !wt.busy { drop(wt) }
+    }
+
+    private func drop(_ wt: WarmThread) {
+        pool.removeAll { $0 === wt }
+        request("thread/unsubscribe", ["threadId": wt.id]) { _ in }
+    }
+
+    /// 会话结束：丢弃它用过的线程
+    func endSession(_ session: UUID) {
+        for wt in pool where wt.session == session { retire(wt) }
+        fillPool()
     }
 
     private func release(_ tid: String) {
-        guard let i = pool.firstIndex(where: { $0.id == tid }) else { return }
-        let wt = pool[i]
+        guard let wt = pool.first(where: { $0.id == tid }) else { return }
         wt.busy = false
+        if wt.ready { wt.turns += 1 }   // 预热轮不计数
         wt.ready = true
-        wt.turns += 1
-        if wt.turns >= maxTurns || pool.count > poolSize {
-            pool.remove(at: i)
-            request("thread/unsubscribe", ["threadId": tid]) { _ in }
+        if wt.retire {
+            drop(wt)
             fillPool()
             return
         }
-        if !threadWaiters.isEmpty {
+        // 只有干净线程才能分给等待者
+        if wt.session == nil, !threadWaiters.isEmpty {
             wt.busy = true
             threadWaiters.removeFirst()(wt)
+            fillPool()
         }
     }
 
@@ -300,19 +339,23 @@ final class CodexProvider: LLMProvider {
 
     // MARK: 对外：执行一次处理
     @discardableResult
-    func run(system: String, prompt: String, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
+    func run(system: String, prompt: String, session: UUID?, onEvent: @escaping (LLMEvent) -> Void) -> LLMTask {
         if system != systemPrompt {
-            // 系统提示词变化：丢弃空闲线程，按新提示词重建
+            // 系统提示词变化（如切换界面语言）：丢弃所有线程，按新提示词重建
             systemPrompt = system
-            pool.removeAll(where: { !$0.busy })
+            for wt in pool { retire(wt) }
         }
+        // 没有会话（如设置里的连接测试）：用一次性会话，结束即丢弃
+        let sid = session ?? UUID()
+        let oneShot = session == nil
         let task = CodexTask()
         task.client = self
         ensureReady { [weak self] err in
             guard let self, !task.cancelled else { return }
             if let err { onEvent(.failed(err.localizedDescription)); return }
-            self.acquire { wt in
+            self.acquire(session: sid) { wt in
                 guard let wt else { onEvent(.failed(L("无法创建 Codex 会话，详见日志", "Could not create a Codex thread, see logs"))); return }
+                if oneShot { wt.retire = true }
                 if task.cancelled { self.release(wt.id); return }
                 self.startTurn(on: wt, prompt: prompt, task: task, onEvent: onEvent)
             }

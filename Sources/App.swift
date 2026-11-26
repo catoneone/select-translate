@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupStatusItem()
         wireUI()
         installMonitors()
+        // 切换 / 重建模型提供方时关闭结果窗，旧对话不会被发给新的提供方
+        NotificationCenter.default.addObserver(forName: .providerChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.result.hide()
+        }
         let trusted = AXIsProcessTrusted()
         appLog("launched, accessibility trusted=\(trusted), bundle=\(Bundle.main.bundlePath)")
         if trusted {
